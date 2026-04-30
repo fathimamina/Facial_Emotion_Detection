@@ -1,66 +1,63 @@
 import cv2
 import numpy as np
-from ultralytics import YOLO 
 from tensorflow.keras.models import load_model
 
-
-yolo = YOLO('yolov8n.pt')
-
-#Load emotion model
+# Load emotion model
 emotion_model = load_model('models/emotion_model.keras')
 
-#Emotion_labels
 emotion_labels = [
-        'angry','disgust','fear','happy','neutral','sad','surprise'
+    'angry','disgust','fear','happy','neutral','sad','surprise'
 ]
 
-#start webcam
+# Load Haar Cascade
+face_cascade = cv2.CascadeClassifier(
+    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+)
+
+# Start webcam
 cap = cv2.VideoCapture(0)
 
 while True:
-    ret,frame = cap.read()
+    ret, frame = cap.read()
     if not ret:
         break
-    
-    #yolo detection
-    results = yolo(frame)
 
-    for r in results:
-        boxes = r.boxes.xyxy.cpu().numpy()
+    # Convert to grayscale
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        for box in boxes:
-            x1,y1,x2,y2 = map(int,box)
+    # Detect faces
+    faces = face_cascade.detectMultiScale(
+        gray_frame,
+        scaleFactor=1.3,
+        minNeighbors=5
+    )
 
-            #crop detected region
-            face = frame[y1:y2,x1:x2]
+    for (x, y, w, h) in faces:
 
-            if face.size==0:
-                continue 
-            # Preprocess for emotion model
-            gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
-            gray = cv2.resize(gray, (48,48))
-            gray = gray / 255.0
-            gray = np.reshape(gray, (1,48,48,1))
+        face = frame[y:y+h, x:x+w]
 
-            # Predict emotion
-            pred = emotion_model.predict(gray, verbose=0)
-            label = emotion_labels[np.argmax(pred)]
+        if face.size == 0:
+            continue
 
-            # Draw bounding box
-            cv2.rectangle(frame, (x1,y1), (x2,y2), (0,255,0), 2)
+        # Preprocess
+        gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+        gray = cv2.resize(gray, (48,48))
+        gray = gray / 255.0
+        gray = np.reshape(gray, (1,48,48,1))
 
-            # Put label
-            cv2.putText(frame, label, (x1, y1-10),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.9, (0,255,0), 2)
+        # Predict
+        pred = emotion_model.predict(gray, verbose=0)
+        label = emotion_labels[np.argmax(pred)]
 
-    # Show frame
+        # Draw
+        cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0), 2)
+        cv2.putText(frame, label, (x, y-10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
+
     cv2.imshow("FER System", frame)
 
-    # Exit
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
 cap.release()
 cv2.destroyAllWindows()
-
