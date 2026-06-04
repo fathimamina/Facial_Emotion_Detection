@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emotion Detector</title>
+</head>
+<body>
+    <h2>🎭 Emotion Detection</h2>
+
+    <input type="file" id="fileInput">
+    <button onclick="upload()">Predict</button>
+
+    <h3 id="result"></h3>
+
+    <script>
+        async function upload() {
+            const fileInput = document.getElementById("fileInput");
+            const file = fileInput.files[0];
+
+            let formData = new FormData();
+            formData.append("file", file);
+
+            let response = await fetch("/api/predict", {
+                method: "POST",
+                body: formData
+            });
+
+            let data = await response.json();
+            document.getElementById("result").innerText =
+                "Emotion: " + data.emotion;
+        }
+    </script>
+</body>
+</html>
